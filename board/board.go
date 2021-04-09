@@ -1,27 +1,30 @@
 package board
 
 import (
+	"fmt"
+	"image/color"
+	_ "image/png"
+	"log"
+	"os"
 
-    "os"
-    "log"
-    "fmt"
-    "image/color"
-    _ "image/png"
+	"ChessEngine/globals"
+	"ChessEngine/utils"
 
-    "ChessEngine/utils"
-    "ChessEngine/globals"
-
-    "github.com/hajimehoshi/ebiten/v2"
-    "github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
-    // Table dimensions (squared)
+	// Table dimensions (squared)
 	tDimensions = 8
-	    // Table inital value
+	// Table inital value
 	tInitValue table = 18446462598732906495
-    // NillValue is all 1's, so its the max value for an uint64
-    tNilValue table = 18446744073709551615 
+	// NillValue is all 1's, so its the max value for an uint64
+	tNilValue table = 18446744073709551615
+)
+
+var (
+	images map[PieceType]*ebiten.Image
 )
 
 // A table is a number which represents the cells that have Pieces in it. For
@@ -41,84 +44,83 @@ const (
 type table uint64
 
 type Board struct {
-    pieces          []Piece
-	table           table
-    lastTable       table
-    movementTable   table
-    // TODO: move images to globals package
-    images          map[PieceType]*ebiten.Image
-    changed         bool
+	pieces        []Piece
+	table         table
+	lastTable     table
+	movementTable table
+	// TODO: move images to globals package
+	changed bool
 }
 
 func (board *Board) UpdateTable() {
-    // Check for click events
-    if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-        sx, sy := ebiten.CursorPosition()
-        bx, by := sx/(globals.WindowWidth/tDimensions), sy/(globals.WindowHeight/tDimensions)
-        log.Printf("Clicked in position (%d,%d) of the table\n", bx, by)
-        // TODO: implement logic to efficiently put the movements into the 
-        // movementTable table
+	// Update table code here ...
+	board.table = board.lastTable
 }
 
-    board.table = board.lastTable
+func (board *Board) SetPieceMovements(xpos, ypos int) {
+	// Get piece in position xpos,ypos
+	cWidth := int(globals.WindowWidth / tDimensions)
+	cHeight := int(globals.WindowHeight / tDimensions)
+	xLog := xpos / cWidth
+	yLog := ypos / cHeight
+	board.movementTable = table(board.pieces[yLog*tDimensions+xLog].GetAvailableMovements())
+	log.Printf("Available movements for piece are: %d\n", board.movementTable)
 }
 
 func (board *Board) IsNilTable() bool {
-    return board.lastTable == tNilValue
+	return board.lastTable == tNilValue
 }
 
 func (board *Board) HasChanged() bool {
-   return board.changed 
+	return board.changed
 }
 
 func (board *Board) SetChanged(ch bool) {
-    board.changed = ch
+	board.changed = ch
 }
 
-// TODO : move this function to globals package
 func (board *Board) LoadImages() {
-
-	// Initialize textures first
-	board.images = make(map[PieceType]*ebiten.Image)
 
 	currDir, err := os.Getwd()
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 
+	images = make(map[PieceType]*ebiten.Image)
+
 	// Append textures so we don't have to search them after this
-	board.images[WhitePawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_plt60.png", currDir, "images"))
-	board.images[BlackPawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_pdt60.png", currDir, "images"))
-	board.images[WhiteBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_blt60.png", currDir, "images"))
-	board.images[BlackBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_bdt60.png", currDir, "images"))
-	board.images[WhiteKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_nlt60.png", currDir, "images"))
-	board.images[BlackKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_ndt60.png", currDir, "images"))
-	board.images[WhiteRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rlt60.png", currDir, "images"))
-	board.images[BlackRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rdt60.png", currDir, "images"))
-	board.images[WhiteKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_klt60.png", currDir, "images"))
-	board.images[BlackKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_kdt60.png", currDir, "images"))
-	board.images[WhiteQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qlt60.png", currDir, "images"))
-	board.images[BlackQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qdt60.png", currDir, "images"))
+	images[WhitePawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_plt60.png", currDir, "images"))
+	images[BlackPawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_pdt60.png", currDir, "images"))
+	images[WhiteBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_blt60.png", currDir, "images"))
+	images[BlackBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_bdt60.png", currDir, "images"))
+	images[WhiteKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_nlt60.png", currDir, "images"))
+	images[BlackKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_ndt60.png", currDir, "images"))
+	images[WhiteRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rlt60.png", currDir, "images"))
+	images[BlackRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rdt60.png", currDir, "images"))
+	images[WhiteKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_klt60.png", currDir, "images"))
+	images[BlackKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_kdt60.png", currDir, "images"))
+	images[WhiteQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qlt60.png", currDir, "images"))
+	images[BlackQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qdt60.png", currDir, "images"))
 
 }
 
 func (board *Board) InitBoard() {
 
-    // Initial table values
+	// Initial table values
 	board.table = tInitValue
-    board.lastTable = tNilValue
-    
-    // Changed must be true in fisrt iteration
-    board.changed = true
+	board.lastTable = tNilValue
 
-    // Set initial pieces values
-    board.pieces = make([]Piece, 64)
-    // White and black's pawns
-    for i := 0; i < 8; i++ {
-    	board.pieces[i+48] = NewPiece(WhitePawn, PiecePosition(48+i))
-    	board.pieces[i+8] = NewPiece(BlackPawn, PiecePosition(8+i))
-    }
-    // White player's pieces
+	// Changed must be true in fisrt iteration
+	board.changed = true
+
+	// Set initial pieces values
+	board.pieces = make([]Piece, 64)
+	// White and black's pawns
+	for i := 0; i < 8; i++ {
+		board.pieces[i+48] = NewPiece(WhitePawn, PiecePosition(48+i))
+		board.pieces[i+8] = NewPiece(BlackPawn, PiecePosition(8+i))
+	}
+	// White player's pieces
 	board.pieces[58] = NewPiece(WhiteBishop, PiecePosition(58))
 	board.pieces[61] = NewPiece(WhiteBishop, PiecePosition(61))
 	board.pieces[57] = NewPiece(WhiteKnight, PiecePosition(57))
@@ -127,8 +129,8 @@ func (board *Board) InitBoard() {
 	board.pieces[63] = NewPiece(WhiteRook, PiecePosition(63))
 	board.pieces[60] = NewPiece(WhiteKing, PiecePosition(60))
 	board.pieces[59] = NewPiece(WhiteQueen, PiecePosition(59))
-    // Black player's pieces
-    board.pieces[2] = NewPiece(BlackBishop, PiecePosition(2))
+	// Black player's pieces
+	board.pieces[2] = NewPiece(BlackBishop, PiecePosition(2))
 	board.pieces[5] = NewPiece(BlackBishop, PiecePosition(5))
 	board.pieces[1] = NewPiece(BlackKnight, PiecePosition(1))
 	board.pieces[6] = NewPiece(BlackKnight, PiecePosition(6))
@@ -140,40 +142,39 @@ func (board *Board) InitBoard() {
 }
 
 func (board *Board) Paint(screen *ebiten.Image) {
-    // Table cell dimensions
-    cWidth  :=  globals.WindowWidth / tDimensions
-    cHeight := globals.WindowHeight / tDimensions
+	// Table cell dimensions
+	cWidth := int(globals.WindowWidth / tDimensions)
+	cHeight := int(globals.WindowHeight / tDimensions)
 	for i := 0; i < tDimensions; i++ {
 		for j := 0; j < tDimensions; j++ {
 			if (i+j)%2 == 0 {
-                ebitenutil.DrawRect(screen, float64(i*cWidth), float64(j*cHeight), float64(cWidth), float64(cHeight), color.White)
+				ebitenutil.DrawRect(screen, float64(i*cWidth), float64(j*cHeight), float64(cWidth), float64(cHeight), color.White)
 			}
 		}
 	}
 	// Paint textures (Pieces) on the board
 	for _, p := range board.pieces {
-        if p != Piece(0) {
-            pPosition := p.getPosition()
-		    xLogic := int(pPosition % 8)
-		    yLogic := int(pPosition / 8)
-		    x := float64(xLogic * cWidth)
-		    y := float64((yLogic) * cHeight)
-            geom := &ebiten.GeoM{}
-            geom.Translate(x,y)
-            // Resize piece icons if cell dimensions are higher or lower
-            if cWidth != 60 && cHeight != 60 {
-                sx := float64(cWidth/60)
-                sy := float64(cHeight/60)
-                geom.Scale(sx,sy)
-            }
-            screen.DrawImage(
-                board.images[p.getPieceType()], 
-                &ebiten.DrawImageOptions{
-                    GeoM: *geom,
-                },
-            )
-        }
-		
+		if p != Piece(0) {
+			pPosition := p.getPosition()
+			xLogic := int(pPosition % 8)
+			yLogic := int(pPosition / 8)
+			x := float64(xLogic * cWidth)
+			y := float64((yLogic) * cHeight)
+			// Center the images
+			x += (float64(cWidth) - 60) / 2
+			y += (float64(cHeight) - 60) / 2
+			// Apply transformations
+			geom := &ebiten.GeoM{}
+			geom.Translate(x, y)
+			// TODO read images in SVG format and scale them
+			screen.DrawImage(
+				images[p.getPieceType()],
+				&ebiten.DrawImageOptions{
+					GeoM: *geom,
+				},
+			)
+		}
+
 	}
-	
+
 }
