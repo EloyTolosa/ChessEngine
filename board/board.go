@@ -5,6 +5,7 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
+	"math"
 	"os"
 
 	"ChessEngine/globals"
@@ -48,8 +49,8 @@ type Board struct {
 	table         table
 	lastTable     table
 	movementTable table
-	// TODO: move images to globals package
-	changed bool
+	changed       bool
+	clicked       bool
 }
 
 func (board *Board) UpdateTable() {
@@ -79,6 +80,14 @@ func (board *Board) SetChanged(ch bool) {
 	board.changed = ch
 }
 
+func (board *Board) IsClicked() bool {
+	return board.clicked
+}
+
+func (board *Board) SetClicked(cl bool) {
+	board.clicked = cl
+}
+
 func (board *Board) LoadImages() {
 
 	currDir, err := os.Getwd()
@@ -89,18 +98,18 @@ func (board *Board) LoadImages() {
 	images = make(map[PieceType]*ebiten.Image)
 
 	// Append textures so we don't have to search them after this
-	images[WhitePawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_plt60.png", currDir, "images"))
-	images[BlackPawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_pdt60.png", currDir, "images"))
-	images[WhiteBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_blt60.png", currDir, "images"))
-	images[BlackBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_bdt60.png", currDir, "images"))
-	images[WhiteKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_nlt60.png", currDir, "images"))
-	images[BlackKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_ndt60.png", currDir, "images"))
-	images[WhiteRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rlt60.png", currDir, "images"))
-	images[BlackRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rdt60.png", currDir, "images"))
-	images[WhiteKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_klt60.png", currDir, "images"))
-	images[BlackKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_kdt60.png", currDir, "images"))
-	images[WhiteQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qlt60.png", currDir, "images"))
-	images[BlackQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qdt60.png", currDir, "images"))
+	images[WhitePawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_plt60.png", currDir, "assets/images"))
+	images[BlackPawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_pdt60.png", currDir, "assets/images"))
+	images[WhiteBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_blt60.png", currDir, "assets/images"))
+	images[BlackBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_bdt60.png", currDir, "assets/images"))
+	images[WhiteKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_nlt60.png", currDir, "assets/images"))
+	images[BlackKnight] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_ndt60.png", currDir, "assets/images"))
+	images[WhiteRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rlt60.png", currDir, "assets/images"))
+	images[BlackRook] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_rdt60.png", currDir, "assets/images"))
+	images[WhiteKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_klt60.png", currDir, "assets/images"))
+	images[BlackKing] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_kdt60.png", currDir, "assets/images"))
+	images[WhiteQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qlt60.png", currDir, "assets/images"))
+	images[BlackQueen] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_qdt60.png", currDir, "assets/images"))
 
 }
 
@@ -142,7 +151,12 @@ func (board *Board) InitBoard() {
 }
 
 func (board *Board) Paint(screen *ebiten.Image) {
-	// Table cell dimensions
+	board.paintCells(screen)
+	board.paintPieces(screen)
+	board.paintAvailableMovements(screen)
+}
+
+func (board *Board) paintCells(screen *ebiten.Image) {
 	cWidth := int(globals.WindowWidth / tDimensions)
 	cHeight := int(globals.WindowHeight / tDimensions)
 	for i := 0; i < tDimensions; i++ {
@@ -152,9 +166,14 @@ func (board *Board) Paint(screen *ebiten.Image) {
 			}
 		}
 	}
-	// Paint textures (Pieces) on the board
+}
+
+func (board *Board) paintPieces(screen *ebiten.Image) {
+	cWidth := int(globals.WindowWidth / tDimensions)
+	cHeight := int(globals.WindowHeight / tDimensions)
 	for _, p := range board.pieces {
 		if p != Piece(0) {
+			// get x and y coordinates
 			pPosition := p.getPosition()
 			xLogic := int(pPosition % 8)
 			yLogic := int(pPosition / 8)
@@ -174,7 +193,46 @@ func (board *Board) Paint(screen *ebiten.Image) {
 				},
 			)
 		}
-
 	}
+}
 
+func (board *Board) paintAvailableMovements(screen *ebiten.Image) {
+	if !board.IsClicked() {
+		return
+	}
+	// in case the board is clicked, continue
+	cWidth := int(globals.WindowWidth / tDimensions)
+	cHeight := int(globals.WindowHeight / tDimensions)
+	// append to a list the position of the movements to paint
+	pocs := make([]int, 0)
+	movs := board.movementTable
+	for i := 0; movs != 0; i++ {
+		if movs&table(math.Pow(2, 63)) == table(math.Pow(2, 63)) {
+			pocs = append(pocs, i)
+		}
+		// shift one bit to the right
+		movs = movs << 1
+	}
+	// draw red circles at the given positions
+	for p := range pocs {
+		// get x and y coordinates
+		xLogic := int(p % 8)
+		yLogic := int(p / 8)
+		// center the dots
+		x := float64(xLogic * cWidth)
+		y := float64((yLogic) * cHeight)
+		// translate
+		geom := &ebiten.GeoM{}
+		geom.Translate(x, y)
+		currDir, err := os.Getwd()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		imgPath := fmt.Sprintf("%s/%s/%s", currDir, "assets/images", "movement.png")
+		log.Println(imgPath)
+		movementImage := utils.NewImage(imgPath)
+		screen.DrawImage(movementImage, &ebiten.DrawImageOptions{
+			GeoM: *geom,
+		})
+	}
 }
