@@ -83,10 +83,7 @@ func (board *Board) UpdateState() {
 
 func (board *Board) SetPieceMovements(xpos, ypos int) (err error) {
 	// Get piece in position xpos,ypos
-	cWidth := int(globals.WindowWidth / tDimensions)
-	cHeight := int(globals.WindowHeight / tDimensions)
-	xLog := xpos / cWidth
-	yLog := ypos / cHeight
+	xLog, yLog := utils.GetLogicalPosition(xpos, ypos)
 	p := board.pieces[yLog*tDimensions+xLog]
 	// no piece at the given position
 	if p == 0 {
@@ -208,6 +205,7 @@ func (board *Board) paintCells(screen *ebiten.Image) {
 }
 
 func (board *Board) paintPieces(screen *ebiten.Image) {
+	// TODO: refactor
 	cWidth := int(globals.WindowWidth / tDimensions)
 	cHeight := int(globals.WindowHeight / tDimensions)
 	for _, p := range board.pieces {

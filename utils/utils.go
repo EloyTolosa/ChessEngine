@@ -24,3 +24,10 @@ func GetLogicalPosition(absX, absY int) (logX, logY int) {
 	cHeight := int(globals.WindowHeight / globals.TableDim)
 	return (absX / cWidth), (absY / cHeight)
 }
+
+// Returns the absolute position from a logical position inside the board table
+func GetAbsolutePosition(logX, logY int) (absX, absY int) {
+	cWidth := int(globals.WindowWidth / globals.TableDim)
+	cHeight := int(globals.WindowHeight / globals.TableDim)
+	return (logX * cWidth), (logY * cHeight)
+}
