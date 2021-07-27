@@ -1,6 +1,7 @@
 package board
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	_ "image/png"
@@ -26,6 +27,8 @@ const (
 
 var (
 	images map[PieceType]*ebiten.Image
+
+	ErrNoPieceAtPos = errors.New("no piece at the given position")
 )
 
 // A table is a number which represents the cells that have Pieces in it. For
@@ -44,47 +47,80 @@ var (
 // Starting from the upper left corner down until the lower right one
 type table uint64
 
+type coordinate struct {
+	x, y uint
+}
+
 type Board struct {
-	pieces        []Piece
-	table         table
-	lastTable     table
+	// This variable saves the state of every individual piece. Its position, and its
+	// type
+	pieces []Piece
+	// this saves the state of the pieces. If in between frames, the value of
+	// the table is different, this means the board has changed
+	tableCurrentFrame  table
+	tablePreviousFrame table
+	// this saves the state of the movements table. The movements table is a table
+	// in which we store all possible movements from a piece.
+	// This table is saved whenever the user clicks on a piece
 	movementTable table
-	changed       bool
-	clicked       bool
+	// this saves a state of the clicked events
+	// if in between frames, this two variables are equal, this means
+	// the state of the board has not changed
+	clickedCurrentFrame  bool
+	clickedPreviousFrame bool
+	// This saves the state of the location of the click in {x,y} coordinates
+	// Being the coordinate {0,0} the top left corner of the table
+	clickedAtCurrentFrame  coordinate
+	clickedAtPreviousFrame coordinate
 }
 
-func (board *Board) UpdateTable() {
+func (board *Board) UpdateState() {
 	// Update table code here ...
-	board.table = board.lastTable
+	board.tablePreviousFrame = board.tableCurrentFrame
+	board.clickedPreviousFrame = board.clickedCurrentFrame
+	board.clickedAtPreviousFrame = board.clickedAtCurrentFrame
 }
 
-func (board *Board) SetPieceMovements(xpos, ypos int) {
+func (board *Board) SetPieceMovements(xpos, ypos int) (err error) {
 	// Get piece in position xpos,ypos
 	cWidth := int(globals.WindowWidth / tDimensions)
 	cHeight := int(globals.WindowHeight / tDimensions)
 	xLog := xpos / cWidth
 	yLog := ypos / cHeight
-	board.movementTable = table(board.pieces[yLog*tDimensions+xLog].GetAvailableMovements())
+	p := board.pieces[yLog*tDimensions+xLog]
+	// no piece at the given position
+	if p == 0 {
+		return ErrNoPieceAtPos
+	}
+	board.movementTable = table(p.GetAvailableMovements())
+	return
 }
 
 func (board *Board) IsNilTable() bool {
-	return board.lastTable == tNilValue
+	return board.tableCurrentFrame == tNilValue
 }
 
 func (board *Board) HasChanged() bool {
-	return board.changed
-}
-
-func (board *Board) SetChanged(ch bool) {
-	board.changed = ch
+	return ((board.clickedCurrentFrame != board.clickedPreviousFrame) ||
+		(board.tableCurrentFrame != board.tablePreviousFrame) ||
+		(board.clickedAtCurrentFrame != board.clickedAtPreviousFrame))
 }
 
 func (board *Board) IsClicked() bool {
-	return board.clicked
+	return board.clickedCurrentFrame
 }
 
 func (board *Board) SetClicked(cl bool) {
-	board.clicked = cl
+	board.clickedCurrentFrame = cl
+}
+
+func (board *Board) SetClickedAt(x, y int) {
+	board.clickedAtCurrentFrame.x = uint(x)
+	board.clickedAtCurrentFrame.y = uint(y)
+}
+
+func (board *Board) ResetMovements() {
+	board.movementTable = 0
 }
 
 func (board *Board) LoadImages() {
@@ -115,11 +151,12 @@ func (board *Board) LoadImages() {
 func (board *Board) InitBoard() {
 
 	// Initial table values
-	board.table = tInitValue
-	board.lastTable = tNilValue
+	board.tableCurrentFrame = tInitValue
+	board.tablePreviousFrame = tNilValue
 
-	// Changed must be true in fisrt iteration
-	board.changed = true
+	// initial clicked at values
+	board.clickedAtCurrentFrame = coordinate{0, 0}
+	board.clickedAtPreviousFrame = coordinate{0, 0}
 
 	// Set initial pieces values
 	board.pieces = make([]Piece, 64)
@@ -150,6 +187,7 @@ func (board *Board) InitBoard() {
 }
 
 func (board *Board) Paint(screen *ebiten.Image) {
+	log.Printf("painting screen...")
 	board.paintCells(screen)
 	board.paintPieces(screen)
 	board.paintAvailableMovements(screen)
@@ -162,6 +200,8 @@ func (board *Board) paintCells(screen *ebiten.Image) {
 		for j := 0; j < tDimensions; j++ {
 			if (i+j)%2 == 0 {
 				ebitenutil.DrawRect(screen, float64(i*cWidth), float64(j*cHeight), float64(cWidth), float64(cHeight), color.White)
+			} else {
+				ebitenutil.DrawRect(screen, float64(i*cWidth), float64(j*cHeight), float64(cWidth), float64(cHeight), color.Black)
 			}
 		}
 	}
@@ -209,11 +249,11 @@ func (board *Board) paintAvailableMovements(screen *ebiten.Image) {
 		if movs&table(math.Pow(2, 63)) == table(math.Pow(2, 63)) {
 			pocs = append(pocs, i)
 		}
-		// shift one bit to the right
+		// shift one bit to the left
 		movs = movs << 1
 	}
 	// draw red circles at the given positions
-	for p := range pocs {
+	for _, p := range pocs {
 		// get image
 		currDir, err := os.Getwd()
 		if err != nil {
