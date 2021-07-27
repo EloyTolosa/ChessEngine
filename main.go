@@ -26,6 +26,7 @@ func (app *App) Update() error {
 	// Check for mouse pressed events
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		app.Board.SetPieceMovements(ebiten.CursorPosition())
+		app.Board.SetClicked(true)
 	}
 
 	app.Board.UpdateTable()
