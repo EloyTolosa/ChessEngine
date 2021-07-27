@@ -3,6 +3,7 @@ package main
 import (
 	"ChessEngine/board"
 	"ChessEngine/globals"
+	"ChessEngine/utils"
 
 	"log"
 
@@ -18,19 +19,24 @@ type App struct {
 
 // Update proceeds the game state.
 // Update is called every tick (1/60 [s] by default).
-func (app *App) Update() error {
-	// Stops first game iteration to show black screen
-	if !app.Board.IsNilTable() {
-		app.Board.SetChanged(false)
-	}
-
+func (app *App) Update() (err error) {
 	// Check for mouse pressed events
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		app.Board.SetPieceMovements(ebiten.CursorPosition())
-		app.Board.SetClicked(true)
+		var x, y int
+		x, y = ebiten.CursorPosition()
+		if err = app.Board.SetPieceMovements(x, y); err != nil {
+			if err == board.ErrNoPieceAtPos {
+				app.Board.SetClicked(false)
+				app.Board.SetClickedAt(0, 0)
+				app.Board.ResetMovements()
+			} else {
+				return err
+			}
+		} else {
+			app.Board.SetClicked(true)
+			app.Board.SetClickedAt(utils.GetLogicalPosition(x, y))
+		}
 	}
-
-	app.Board.UpdateTable()
 	return nil
 }
 
@@ -40,6 +46,8 @@ func (app *App) Draw(screen *ebiten.Image) {
 	// Write your game's rendering.
 	if app.Board.HasChanged() {
 		app.Board.Paint(screen)
+		// update board with last frame value
+		app.Board.UpdateState()
 	}
 }
 
