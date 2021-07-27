@@ -5,4 +5,6 @@ const (
 	MaxFPS       = 6
 	WindowWidth  = 800
 	WindowHeight = 800
+
+	TableDim = 8
 )
