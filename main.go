@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 const ()
@@ -24,7 +25,7 @@ func (app *App) Update() error {
 	}
 
 	// Check for mouse pressed events
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		app.Board.SetPieceMovements(ebiten.CursorPosition())
 		app.Board.SetClicked(true)
 	}

@@ -65,7 +65,6 @@ func (board *Board) SetPieceMovements(xpos, ypos int) {
 	xLog := xpos / cWidth
 	yLog := ypos / cHeight
 	board.movementTable = table(board.pieces[yLog*tDimensions+xLog].GetAvailableMovements())
-	log.Printf("Available movements for piece are: %d\n", board.movementTable)
 }
 
 func (board *Board) IsNilTable() bool {
@@ -215,22 +214,28 @@ func (board *Board) paintAvailableMovements(screen *ebiten.Image) {
 	}
 	// draw red circles at the given positions
 	for p := range pocs {
-		// get x and y coordinates
-		xLogic := int(p % 8)
-		yLogic := int(p / 8)
-		// center the dots
-		x := float64(xLogic * cWidth)
-		y := float64((yLogic) * cHeight)
-		// translate
-		geom := &ebiten.GeoM{}
-		geom.Translate(x, y)
+		// get image
 		currDir, err := os.Getwd()
 		if err != nil {
 			log.Fatalln(err)
 		}
 		imgPath := fmt.Sprintf("%s/%s/%s", currDir, "assets/images", "movement.png")
-		log.Println(imgPath)
 		movementImage := utils.NewImage(imgPath)
+		// get x and y coordinates
+		xLogic := int(p % 8)
+		yLogic := int(p / 8)
+		// center the dots
+		x := float64(xLogic * cWidth)
+		y := float64(yLogic * cHeight)
+		// declare geom struct
+		geom := &ebiten.GeoM{}
+		// scale (first)
+		xf := float64(cWidth) / float64(movementImage.Bounds().Dx())
+		yf := float64(cHeight) / float64(movementImage.Bounds().Dy())
+		geom.Scale(xf, yf)
+		// translate (then translate)
+		geom.Translate(x, y)
+		// draw image
 		screen.DrawImage(movementImage, &ebiten.DrawImageOptions{
 			GeoM: *geom,
 		})
