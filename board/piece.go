@@ -1,6 +1,9 @@
 package board
 
-import "log"
+import (
+	"ChessEngine/globals"
+	"log"
+)
 
 const (
 	// Piece constants they're a Piece type so they don't get confused
@@ -52,14 +55,20 @@ const (
 //
 // ************************* MOVEMENT RULES ***********************************
 // Pawns:
-//     - Every cell up they move, shift 8 bits to the left
-//     - Starting from cell A2, each pawn will shift 1 bit to the right, being
-//       the A2 cell index 0, B2 index 1, etc:
-//       [ A2, B2, C2, D2, E2, F2, G2, H2 ] pawn number
-//       [ 0 , 1 , 2 , 3 , 4 , 5 , 6 , 7  ] bits to shift right
+// 		- Pawns can move one or two cells up. Pawns can move two cells in case of
+// 			the pawn being in the initial spot.
+// 			Pawns can also move one cell in diagonal, in the case of capturing.
+//			Also, pawns have a special move called "an-passant", meaning that you
+// 			can capture an oponent pawn without the pawn being strictly in diagonal.
+//     	- Every cell up they move, shift 8 bits to the left
+//     	- Starting from cell A2, each pawn will shift 1 bit to the right, being
+// 			the A2 cell index 0, B2 index 1, etc:
+//      	[ A2, B2, C2, D2, E2, F2, G2, H2 ] pawn number
+//      	[ 0 , 1 , 2 , 3 , 4 , 5 , 6 , 7  ] bits to shift right
 //
 // Rook:
-//     Rooks can move straight in every direction
+// 		- Rooks move in straight lines, either up/down, or left/right, and can move
+// 			the ammount of cells they want to.
 
 var (
 	Movements = map[PieceType]uint64{
@@ -105,6 +114,11 @@ func (piece Piece) GetAvailableMovements() uint64 {
 		log.Printf("Not implemented yet")
 		return 0
 	}
+}
+
+func (piece Piece) GetLogicalPosition() (logX, logY int) {
+	pp := piece.getPosition()
+	return int(pp % globals.TableDim), int(pp / globals.TableDim)
 }
 
 func (Piece Piece) getPosition() PiecePosition {

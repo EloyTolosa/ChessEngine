@@ -7,4 +7,7 @@ const (
 	WindowHeight = 800
 
 	TableDim = 8
+
+	CWidth  = int(WindowWidth / TableDim)
+	CHeight = int(WindowHeight / TableDim)
 )

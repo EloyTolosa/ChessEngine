@@ -83,7 +83,7 @@ func (board *Board) UpdateState() {
 
 func (board *Board) SetPieceMovements(xpos, ypos int) (err error) {
 	// Get piece in position xpos,ypos
-	xLog, yLog := utils.GetLogicalPosition(xpos, ypos)
+	xLog, yLog := utils.GetLogicalPosition(float64(xpos), float64(ypos))
 	p := board.pieces[yLog*tDimensions+xLog]
 	// no piece at the given position
 	if p == 0 {
@@ -184,7 +184,7 @@ func (board *Board) InitBoard() {
 }
 
 func (board *Board) Paint(screen *ebiten.Image) {
-	log.Printf("painting screen...")
+	// log.Printf("painting screen...")
 	board.paintCells(screen)
 	board.paintPieces(screen)
 	board.paintAvailableMovements(screen)
@@ -206,19 +206,15 @@ func (board *Board) paintCells(screen *ebiten.Image) {
 
 func (board *Board) paintPieces(screen *ebiten.Image) {
 	// TODO: refactor
-	cWidth := int(globals.WindowWidth / tDimensions)
-	cHeight := int(globals.WindowHeight / tDimensions)
 	for _, p := range board.pieces {
 		if p != Piece(0) {
 			// get x and y coordinates
-			pPosition := p.getPosition()
-			xLogic := int(pPosition % 8)
-			yLogic := int(pPosition / 8)
-			x := float64(xLogic * cWidth)
-			y := float64((yLogic) * cHeight)
+			// pPosition := p.getPosition()
+			logX, logY := p.GetLogicalPosition()
+			x, y := utils.GetAbsolutePosition(logX, logY)
 			// Center the images
-			x += (float64(cWidth) - 60) / 2
-			y += (float64(cHeight) - 60) / 2
+			x += (float64(globals.CWidth) - 60) / 2
+			y += (float64(globals.CHeight) - 60) / 2
 			// Apply transformations
 			geom := &ebiten.GeoM{}
 			geom.Translate(x, y)
