@@ -34,7 +34,7 @@ func (app *App) Update() (err error) {
 			}
 		} else {
 			app.Board.SetClicked(true)
-			app.Board.SetClickedAt(utils.GetLogicalPosition(x, y))
+			app.Board.SetClickedAt(utils.GetLogicalPosition(float64(x), float64(y)))
 		}
 	}
 	return nil
@@ -44,11 +44,9 @@ func (app *App) Update() (err error) {
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (app *App) Draw(screen *ebiten.Image) {
 	// Write your game's rendering.
-	if app.Board.HasChanged() {
-		app.Board.Paint(screen)
-		// update board with last frame value
-		app.Board.UpdateState()
-	}
+	app.Board.Paint(screen)
+	// update board with last frame value
+	app.Board.UpdateState()
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
