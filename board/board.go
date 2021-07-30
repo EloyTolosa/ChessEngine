@@ -62,7 +62,7 @@ type Board struct {
 	// this saves the state of the movements table. The movements table is a table
 	// in which we store all possible movements from a piece.
 	// This table is saved whenever the user clicks on a piece
-	movementTable table
+	availableMovements []int
 	// this saves a state of the clicked events
 	// if in between frames, this two variables are equal, this means
 	// the state of the board has not changed
@@ -72,6 +72,16 @@ type Board struct {
 	// Being the coordinate {0,0} the top left corner of the table
 	clickedAtCurrentFrame  coordinate
 	clickedAtPreviousFrame coordinate
+}
+
+// Function that returns true if there is a piece at position p
+func (board *Board) isThereAPieceAt(pos int) bool {
+	// copy the table value
+	b := board.tableCurrentFrame
+	twoToThe63 := uint64(math.Pow(2, 63))
+	// return true if there is a one at position 'pos' of the table
+	// (bitmap implementation)
+	return ((uint64(b) << pos) & twoToThe63) == twoToThe63
 }
 
 func (board *Board) UpdateState() {
@@ -89,7 +99,7 @@ func (board *Board) SetPieceMovements(xpos, ypos int) (err error) {
 	if p == 0 {
 		return ErrNoPieceAtPos
 	}
-	board.movementTable = table(p.GetAvailableMovements())
+	board.availableMovements = p.GetAvailableMovements(board)
 	return
 }
 
@@ -117,7 +127,7 @@ func (board *Board) SetClickedAt(x, y int) {
 }
 
 func (board *Board) ResetMovements() {
-	board.movementTable = 0
+	board.availableMovements = make([]int, 0)
 }
 
 func (board *Board) LoadImages() {
@@ -233,39 +243,26 @@ func (board *Board) paintAvailableMovements(screen *ebiten.Image) {
 	if !board.IsClicked() {
 		return
 	}
-	// in case the board is clicked, continue
-	cWidth := int(globals.WindowWidth / tDimensions)
-	cHeight := int(globals.WindowHeight / tDimensions)
-	// append to a list the position of the movements to paint
-	pocs := make([]int, 0)
-	movs := board.movementTable
-	for i := 0; movs != 0; i++ {
-		if movs&table(math.Pow(2, 63)) == table(math.Pow(2, 63)) {
-			pocs = append(pocs, i)
-		}
-		// shift one bit to the left
-		movs = movs << 1
+	// get image
+	currDir, err := os.Getwd()
+	if err != nil {
+		log.Fatalln(err)
 	}
+	imgPath := fmt.Sprintf("%s/%s/%s", currDir, "assets/images", "movement.png")
+	movementImage := utils.NewImage(imgPath)
 	// draw red circles at the given positions
-	for _, p := range pocs {
-		// get image
-		currDir, err := os.Getwd()
-		if err != nil {
-			log.Fatalln(err)
-		}
-		imgPath := fmt.Sprintf("%s/%s/%s", currDir, "assets/images", "movement.png")
-		movementImage := utils.NewImage(imgPath)
+	for _, p := range board.availableMovements {
 		// get x and y coordinates
 		xLogic := int(p % 8)
 		yLogic := int(p / 8)
 		// center the dots
-		x := float64(xLogic * cWidth)
-		y := float64(yLogic * cHeight)
+		x := float64(xLogic * globals.CWidth)
+		y := float64(yLogic * globals.CHeight)
 		// declare geom struct
 		geom := &ebiten.GeoM{}
 		// scale (first)
-		xf := float64(cWidth) / float64(movementImage.Bounds().Dx())
-		yf := float64(cHeight) / float64(movementImage.Bounds().Dy())
+		xf := float64(globals.CWidth) / float64(movementImage.Bounds().Dx())
+		yf := float64(globals.CHeight) / float64(movementImage.Bounds().Dy())
 		geom.Scale(xf, yf)
 		// translate (then translate)
 		geom.Translate(x, y)
