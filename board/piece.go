@@ -3,6 +3,7 @@ package board
 import (
 	"ChessEngine/globals"
 	"log"
+	"math"
 )
 
 const (
@@ -71,8 +72,36 @@ const (
 // 			the ammount of cells they want to.
 
 var (
-	Movements = map[PieceType]uint64{
-		WhitePawn: 8421376, BlackPawn: 36169534507319296,
+	Movements = map[PieceType][]Movement{
+		WhitePawn: {
+			Movement{
+				UP, 2,
+			},
+			Movement{
+				func(i int) int {
+					return UP(i) + RIGHT(i)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return UP(i) + LEFT(i)
+				}, 1,
+			},
+		}, BlackPawn: {
+			Movement{
+				DOWN, 2,
+			},
+			Movement{
+				func(i int) int {
+					return DOWN(i) + RIGHT(i)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return DOWN(i) + LEFT(i)
+				}, 1,
+			},
+		},
 	}
 )
 
@@ -103,28 +132,70 @@ func NewPiece(pt PieceType, pp PiecePosition) Piece {
 	return Piece(int(pp<<5) | int(pt))
 }
 
-func (piece Piece) GetAvailableMovements() uint64 {
-	switch piece.getPieceType() {
-	case WhitePawn:
-		ppos := piece.getPosition()
-		bitesToShiftLeft := 6 - (ppos / 8)
-		bitesToShiftRight := ppos - 48
-		return (Movements[WhitePawn] >> bitesToShiftRight) << bitesToShiftLeft
+func (piece *Piece) move(delta int) {
+	newpos := piece.getPosition() + PiecePosition(delta)
+	piece.setPosition(newpos)
+}
+
+func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
+	switch p.getPieceType() {
+	case WhitePawn, BlackPawn:
+		// pawn is at top of the board
+		if npos > 63 {
+			return true
+		}
+		// pawn is at the botton of the board
+		if npos < 0 {
+			return true
+		}
+		// pawn in left side moves diagonal and goes to the right side
+		if ((ppos%globals.TableDim == 0) && (npos%globals.TableDim == 7)) ||
+			// pawn in right sido moves diagonal and goes to the left side
+			((ppos%globals.TableDim == 7) && (npos%globals.TableDim == 0)) {
+			return true
+		}
+		// pawn can only move diagonal if and only if another piece is
+		// in a diagonal and the new move is a giagonal one
+		if ((math.Abs(float64(ppos-npos)) == 7.0) || (math.Abs(float64(ppos-npos)) == 9.0) ||
+			(math.Abs(float64(ppos+npos)) == 7.0) || (math.Abs(float64(ppos+npos)) == 9.0)) &&
+			!board.isThereAPieceAt(npos) {
+			return true
+		}
+		return false
 	default:
-		log.Printf("Not implemented yet")
-		return 0
+		log.Println("Not implemented")
+		return false
 	}
 }
 
-func (piece Piece) GetLogicalPosition() (logX, logY int) {
-	pp := piece.getPosition()
+func (p *Piece) GetAvailableMovements(board *Board) (newPositions []int) {
+	ppos := int(p.getPosition())
+	for _, m := range Movements[p.getPieceType()] {
+		for r := 1; r <= m.Limit; r++ {
+			npos := ppos + m.Move(r)
+			// check position validity
+			if !p.isIllegalMove(board, ppos, npos) {
+				// if it does not overflow, we append it
+				newPositions = append(newPositions, npos)
+			}
+		}
+	}
+	return
+}
+
+func (p *Piece) GetLogicalPosition() (logX int, logY int) {
+	pp := p.getPosition()
 	return int(pp % globals.TableDim), int(pp / globals.TableDim)
 }
 
-func (Piece Piece) getPosition() PiecePosition {
-	return PiecePosition((int(Piece) & positionMask) >> 5)
+func (p *Piece) getPosition() PiecePosition {
+	return PiecePosition((int(*p) & positionMask) >> 5)
 }
 
-func (Piece Piece) getPieceType() PieceType {
-	return PieceType(int(Piece) & PieceMask)
+func (p *Piece) setPosition(position PiecePosition) {
+	*p = Piece(int(*p) & (int(position) << 8))
+}
+
+func (p *Piece) getPieceType() PieceType {
+	return PieceType(int(*p) & PieceMask)
 }
