@@ -11,8 +11,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-const ()
-
 type App struct {
 	Board *board.Board
 }
@@ -24,17 +22,27 @@ func (app *App) Update() (err error) {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		var x, y int
 		x, y = ebiten.CursorPosition()
-		if err = app.Board.SetPieceMovements(x, y); err != nil {
-			if err == board.ErrNoPieceAtPos {
-				app.Board.SetClicked(false)
-				app.Board.SetClickedAt(0, 0)
+		// Get piece in position xpos,ypos
+		xLog, yLog := utils.GetLogicalPosition(float64(x), float64(y))
+		p, err := app.Board.GetPieceAt(xLog, yLog)
+		available := app.Board.IsItAvailablePosition(xLog, yLog)
+		if err != nil && err == board.ErrNoPieceAtPos && !available {
+			app.Board.SetClicked(false)
+			app.Board.SetClickedAt(0, 0)
+			app.Board.ResetMovements()
+		} else if available {
+			app.Board.SetClicked(true)
+			app.Board.SetClickedAt(xLog, yLog)
+			xPrev, yPrev := app.Board.GetClickedAtPrevious()
+			p, err = app.Board.GetPieceAt(xPrev, yPrev)
+			if err != board.ErrNoPieceAtPos {
+				app.Board.Move(p, xLog, yLog)
 				app.Board.ResetMovements()
-			} else {
-				return err
 			}
 		} else {
 			app.Board.SetClicked(true)
-			app.Board.SetClickedAt(utils.GetLogicalPosition(float64(x), float64(y)))
+			app.Board.SetClickedAt(xLog, yLog)
+			app.Board.SetAvailableMovements(p)
 		}
 	}
 	return nil
