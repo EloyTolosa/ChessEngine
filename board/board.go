@@ -47,6 +47,13 @@ var (
 // Starting from the upper left corner down until the lower right one
 type table uint64
 
+func (t *table) move(from, to int) {
+	from = globals.TableDim*globals.TableDim - from - 1
+	to = globals.TableDim*globals.TableDim - to - 1
+	*t = *t & (^(1 << from)) // put 0 in previous position
+	*t = *t | (1 << to)      // put 1 in new position
+}
+
 type coordinate struct {
 	x, y uint
 }
@@ -54,7 +61,7 @@ type coordinate struct {
 type Board struct {
 	// This variable saves the state of every individual piece. Its position, and its
 	// type
-	pieces []Piece
+	pieces map[int]*Piece
 	// this saves the state of the pieces. If in between frames, the value of
 	// the table is different, this means the board has changed
 	tableCurrentFrame  table
@@ -62,7 +69,7 @@ type Board struct {
 	// this saves the state of the movements table. The movements table is a table
 	// in which we store all possible movements from a piece.
 	// This table is saved whenever the user clicks on a piece
-	availableMovements []int
+	availablePositions []int
 	// this saves a state of the clicked events
 	// if in between frames, this two variables are equal, this means
 	// the state of the board has not changed
@@ -72,6 +79,18 @@ type Board struct {
 	// Being the coordinate {0,0} the top left corner of the table
 	clickedAtCurrentFrame  coordinate
 	clickedAtPreviousFrame coordinate
+}
+
+func (board *Board) GetTableCurrentFrame() table {
+	return board.tableCurrentFrame
+}
+
+func (board *Board) GetClickedAtCurrent() (x, y int) {
+	return int(board.clickedAtCurrentFrame.x), int(board.clickedAtCurrentFrame.y)
+}
+
+func (board *Board) GetClickedAtPrevious() (x, y int) {
+	return int(board.clickedAtPreviousFrame.x), int(board.clickedAtPreviousFrame.y)
 }
 
 // Function that returns true if there is a piece at position p
@@ -91,16 +110,39 @@ func (board *Board) UpdateState() {
 	board.clickedAtPreviousFrame = board.clickedAtCurrentFrame
 }
 
-func (board *Board) SetPieceMovements(xpos, ypos int) (err error) {
+func (board *Board) Move(p *Piece, x, y int) {
+	to := y*globals.TableDim + x
+	from := int(p.getPosition())
+	// delete old position
+	delete(board.pieces, from)
+	// change bit in table current frame
+	board.tableCurrentFrame.move(from, to)
+	// change key to map
+	board.pieces[to] = p
+	// change new position to piece
+	p.MoveTo(to)
+}
+
+func (board *Board) SetAvailableMovements(p *Piece) {
+	// check if there's no piece at the given position
+	board.availablePositions = p.GetAvailableMovements(board)
+}
+
+func (board *Board) GetPieceAt(xpos, ypos int) (piece *Piece, err error) {
 	// Get piece in position xpos,ypos
-	xLog, yLog := utils.GetLogicalPosition(float64(xpos), float64(ypos))
-	p := board.pieces[yLog*tDimensions+xLog]
-	// no piece at the given position
-	if p == 0 {
-		return ErrNoPieceAtPos
+	piece, exists := board.pieces[ypos*globals.TableDim+xpos]
+	if !exists {
+		err = ErrNoPieceAtPos
 	}
-	board.availableMovements = p.GetAvailableMovements(board)
-	return
+	return piece, err
+}
+
+func (board *Board) IsItAvailablePosition(xpos, ypos int) (available bool) {
+	for i := 0; i < len(board.availablePositions) && !available; i++ {
+		pos := board.availablePositions[i]
+		available = (pos == ypos*globals.TableDim+xpos)
+	}
+	return available
 }
 
 func (board *Board) IsNilTable() bool {
@@ -127,7 +169,7 @@ func (board *Board) SetClickedAt(x, y int) {
 }
 
 func (board *Board) ResetMovements() {
-	board.availableMovements = make([]int, 0)
+	board.availablePositions = make([]int, 0)
 }
 
 func (board *Board) LoadImages() {
@@ -166,35 +208,34 @@ func (board *Board) InitBoard() {
 	board.clickedAtPreviousFrame = coordinate{0, 0}
 
 	// Set initial pieces values
-	board.pieces = make([]Piece, 64)
+	board.pieces = make(map[int]*Piece)
 	// White and black's pawns
 	for i := 0; i < 8; i++ {
-		board.pieces[i+48] = NewPiece(WhitePawn, PiecePosition(48+i))
-		board.pieces[i+8] = NewPiece(BlackPawn, PiecePosition(8+i))
+		board.pieces[i+48] = NewPiece(WhitePawn, 48+i)
+		board.pieces[i+8] = NewPiece(BlackPawn, 8+i)
 	}
 	// White player's pieces
-	board.pieces[58] = NewPiece(WhiteBishop, PiecePosition(58))
-	board.pieces[61] = NewPiece(WhiteBishop, PiecePosition(61))
-	board.pieces[57] = NewPiece(WhiteKnight, PiecePosition(57))
-	board.pieces[62] = NewPiece(WhiteKnight, PiecePosition(62))
-	board.pieces[56] = NewPiece(WhiteRook, PiecePosition(56))
-	board.pieces[63] = NewPiece(WhiteRook, PiecePosition(63))
-	board.pieces[60] = NewPiece(WhiteKing, PiecePosition(60))
-	board.pieces[59] = NewPiece(WhiteQueen, PiecePosition(59))
+	board.pieces[58] = NewPiece(WhiteBishop, 58)
+	board.pieces[61] = NewPiece(WhiteBishop, 61)
+	board.pieces[57] = NewPiece(WhiteKnight, 57)
+	board.pieces[62] = NewPiece(WhiteKnight, 62)
+	board.pieces[56] = NewPiece(WhiteRook, 56)
+	board.pieces[63] = NewPiece(WhiteRook, 63)
+	board.pieces[60] = NewPiece(WhiteKing, 60)
+	board.pieces[59] = NewPiece(WhiteQueen, 59)
 	// Black player's pieces
-	board.pieces[2] = NewPiece(BlackBishop, PiecePosition(2))
-	board.pieces[5] = NewPiece(BlackBishop, PiecePosition(5))
-	board.pieces[1] = NewPiece(BlackKnight, PiecePosition(1))
-	board.pieces[6] = NewPiece(BlackKnight, PiecePosition(6))
-	board.pieces[0] = NewPiece(BlackRook, PiecePosition(0))
-	board.pieces[7] = NewPiece(BlackRook, PiecePosition(7))
-	board.pieces[4] = NewPiece(BlackKing, PiecePosition(4))
-	board.pieces[3] = NewPiece(BlackQueen, PiecePosition(3))
+	board.pieces[2] = NewPiece(BlackBishop, 2)
+	board.pieces[5] = NewPiece(BlackBishop, 5)
+	board.pieces[1] = NewPiece(BlackKnight, 1)
+	board.pieces[6] = NewPiece(BlackKnight, 6)
+	board.pieces[0] = NewPiece(BlackRook, 0)
+	board.pieces[7] = NewPiece(BlackRook, 7)
+	board.pieces[4] = NewPiece(BlackKing, 4)
+	board.pieces[3] = NewPiece(BlackQueen, 3)
 
 }
 
 func (board *Board) Paint(screen *ebiten.Image) {
-	// log.Printf("painting screen...")
 	board.paintCells(screen)
 	board.paintPieces(screen)
 	board.paintAvailableMovements(screen)
@@ -217,7 +258,7 @@ func (board *Board) paintCells(screen *ebiten.Image) {
 func (board *Board) paintPieces(screen *ebiten.Image) {
 	// TODO: refactor
 	for _, p := range board.pieces {
-		if p != Piece(0) {
+		if *p != Piece(0) {
 			// get x and y coordinates
 			// pPosition := p.getPosition()
 			logX, logY := p.GetLogicalPosition()
@@ -251,7 +292,7 @@ func (board *Board) paintAvailableMovements(screen *ebiten.Image) {
 	imgPath := fmt.Sprintf("%s/%s/%s", currDir, "assets/images", "movement.png")
 	movementImage := utils.NewImage(imgPath)
 	// draw red circles at the given positions
-	for _, p := range board.availableMovements {
+	for _, p := range board.availablePositions {
 		// get x and y coordinates
 		xLogic := int(p % 8)
 		yLogic := int(p / 8)
