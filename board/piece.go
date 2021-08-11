@@ -23,8 +23,8 @@ const (
 )
 
 const (
-	positionMask = 2016
-	PieceMask    = 31
+	positionMask uint16 = 65280
+	pieceMask    uint16 = 255
 )
 
 // A movement is a number representing the positions that the piece can take
@@ -105,9 +105,8 @@ var (
 	}
 )
 
-// A Piece is represented with a 10 bit number. From this 10 bits, the 6 leftmost
-// of them represent the position, and the 5 rightmost of them represent the Piece
-// itself.
+// A Piece is represented with a 16 bit number. The 8 leftmost bits represent the
+// position, and the 8 rightmost of them represent the type of the piece.
 //
 // For example, a White rook at E4 (which is the cell number 36, if we say that
 // cell 0 is the column A8), would be represented like this
@@ -120,21 +119,21 @@ var (
 // To get the Piece or the position, we just need to use a mask and perform the
 // bitwise AND operation
 //
-// Piece mask    => 00000011111 => 31
-// position mask => 11111100000 => 2016
-type Piece int
+// Piece mask    => 0000000011111111 => (2^8)-1 => 255
+// position mask => 1111111100000000 => 65280
+type Piece uint16
 
-type PieceType int
+type PieceType uint8
 
-type PiecePosition int
+type PiecePosition uint8
 
-func NewPiece(pt PieceType, pp PiecePosition) Piece {
-	return Piece(int(pp<<5) | int(pt))
+func NewPiece(pt PieceType, pp int) *Piece {
+	p := Piece(pp<<8 | int(pt))
+	return &p
 }
 
-func (piece *Piece) move(delta int) {
-	newpos := piece.getPosition() + PiecePosition(delta)
-	piece.setPosition(newpos)
+func (piece *Piece) MoveTo(to int) {
+	piece.setPosition(PiecePosition(to))
 }
 
 func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
@@ -161,6 +160,13 @@ func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
 			!board.isThereAPieceAt(npos) {
 			return true
 		}
+		// a pawn can only move two steps if its in the orignal state
+		if math.Abs(float64(ppos-npos)) == 16.0 {
+			// get y axis of the piece (row)
+			y := int(ppos / globals.TableDim)
+			return (y < 6) && (y > 1)
+		}
+
 		return false
 	default:
 		log.Println("Not implemented")
@@ -188,14 +194,15 @@ func (p *Piece) GetLogicalPosition() (logX int, logY int) {
 	return int(pp % globals.TableDim), int(pp / globals.TableDim)
 }
 
-func (p *Piece) getPosition() PiecePosition {
-	return PiecePosition((int(*p) & positionMask) >> 5)
+func (p *Piece) getPosition() int {
+	return int(uint16(*p) & positionMask >> 8)
 }
 
 func (p *Piece) setPosition(position PiecePosition) {
-	*p = Piece(int(*p) & (int(position) << 8))
+	newpos := (uint16(position) << 8) // xxxxxxxx11111111
+	*p = Piece(newpos | uint16(p.getPieceType()))
 }
 
 func (p *Piece) getPieceType() PieceType {
-	return PieceType(int(*p) & PieceMask)
+	return PieceType(uint16(*p) & pieceMask)
 }
