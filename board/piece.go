@@ -168,6 +168,18 @@ type PieceType uint8
 
 type PiecePosition uint8
 
+func (pos PiecePosition) getX() int {
+	return int(pos % globals.TableDim)
+}
+
+func (pos PiecePosition) getY() int {
+	return int(pos / globals.TableDim)
+}
+
+func (pos PiecePosition) isOutOfBounds() bool {
+	return pos > 63 || pos < 0
+}
+
 func NewPiece(pt PieceType, pp int) *Piece {
 	p := Piece(pp<<8 | int(pt))
 	return &p
@@ -177,57 +189,58 @@ func (piece *Piece) MoveTo(to int) {
 	piece.setPosition(PiecePosition(to))
 }
 
-// TODO: REFACTOR
-//
-// we can get ppos from p.getPosition, there's no need to pass it as a parameter to the function
-func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
+func AreSameColor(p1, p2 *Piece) bool {
+	// white pieces are the same as black pieces, but divided by 2, so to know if a piece is from
+	// the opposite color, we have to perform the division and, in case they are the from different color,
+	// the divission has to be either 2 or 1/2
+	d := float64(p1.getPieceType() / p2.getPieceType())
+	return !(d == 2.0 || d == 1/2)
+}
+
+func (p *Piece) isIllegalMove(board *Board, newpos int) bool {
+	// current and new piece positions
+	ppos := PiecePosition(p.getPosition())
+	npos := PiecePosition(newpos)
+
 	switch p.getPieceType() {
 	case WhitePawn, BlackPawn:
 		// new position is out of bounds
-		if npos > 63 || npos < 0 {
+		if npos.isOutOfBounds() {
 			return true
 		}
-		// pawn in left side moves diagonal and goes to the right side
 
-		// TODO: ADD FUNCTIONS
-		//
-		// - piece.getX()
-		// - piece.getY()
-		if ((ppos%globals.TableDim == 0) && (npos%globals.TableDim == 7)) ||
+		px, py := ppos.getX(), ppos.getY()
+		nx, ny := npos.getX(), npos.getY()
+
+		// pawn in left side moves diagonal and goes to the right side
+		if ((px == 0) && (nx == 7)) ||
 			// pawn in right sido moves diagonal and goes to the left side
-			((ppos%globals.TableDim == 7) && (npos%globals.TableDim == 0)) {
+			((px == 7) && (nx == 0)) {
 			return true
 		}
+
+		// xdiff and ydiff variables just to save some memory and lines of code
+		xdiff := math.Abs(float64(px - nx))
+		ydiff := math.Abs(float64(py - ny))
+
 		// pawn can only move diagonal if and only if another piece from the oposite color is
 		// in a diagonal and the new move is a giagonal one
-		if (math.Abs(float64(ppos-npos)) == 7.0) || (math.Abs(float64(ppos-npos)) == 9.0) ||
-			(math.Abs(float64(ppos+npos)) == 7.0) || (math.Abs(float64(ppos+npos)) == 9.0) {
-			if !board.isThereAPieceAt(npos) {
+		if xdiff == 1 && ydiff == 1 {
+			if !board.isThereAPieceAt(newpos) {
 				return true
 			} else {
-				xLog, yLog := int(npos%globals.TableDim), int(npos/globals.TableDim)
 				// we already checked if there's a piece there, so we do not have to check the error here
-				np, _ := board.GetPieceAt(xLog, yLog)
-				// white pieces are the same as black pieces, but divided by 2, so to know if a piece is from
-				// the opposite color, we have to perform the division and, in case they are the from different color,
-				// the divission has to be either 2 or 1/2
-
-				// TODO: ADD FUNCTION
-				//
-				// AreSameColor(piece1, piece2)
-				d := float64(np.getPieceType() / p.getPieceType())
-				return !(d == 2.0 || d == 1/2)
+				np, _ := board.GetPieceAt(nx, ny)
+				return AreSameColor(p, np)
 			}
 		}
 		// a pawn can only move two steps if its in the orignal state
-		if math.Abs(float64(ppos-npos)) == 16.0 {
+		if ydiff == 2 {
 			// get y axis of the piece (row)
-			y := int(ppos / globals.TableDim)
-			return (y < 6) && (y > 1)
+			return (py < 6) && (py > 1)
 		}
 		// and obviously, a pawn cannot move forward if any piece is in front of him
-		if ((math.Abs(float64(ppos-npos)) == 8.0) || (math.Abs(float64(ppos-npos)) == 16.0)) &&
-			board.isThereAPieceAt(npos) {
+		if (ydiff == 1 || ydiff == 2) && board.isThereAPieceAt(newpos) {
 			return true
 		}
 		// otherwise, its a good move
@@ -244,7 +257,7 @@ func (p *Piece) GetAvailableMovements(board *Board) (newPositions []int) {
 		for r := 1; r <= m.Limit; r++ {
 			npos := ppos + m.Move(r)
 			// check position validity
-			if !p.isIllegalMove(board, ppos, npos) {
+			if !p.isIllegalMove(board, npos) {
 				// if it does not overflow, we append it
 				newPositions = append(newPositions, npos)
 			}
