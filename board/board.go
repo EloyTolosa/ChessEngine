@@ -294,8 +294,8 @@ func (board *Board) paintAvailableMovements(screen *ebiten.Image) {
 	// draw red circles at the given positions
 	for _, p := range board.availablePositions {
 		// get x and y coordinates
-		xLogic := int(p % 8)
-		yLogic := int(p / 8)
+		xLogic := int(p % globals.TableDim)
+		yLogic := int(p / globals.TableDim)
 		// center the dots
 		x := float64(xLogic * globals.CWidth)
 		y := float64(yLogic * globals.CHeight)
