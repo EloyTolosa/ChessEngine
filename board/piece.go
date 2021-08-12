@@ -136,6 +136,9 @@ func (piece *Piece) MoveTo(to int) {
 	piece.setPosition(PiecePosition(to))
 }
 
+// TODO: REFACTOR
+//
+// we can get ppos from p.getPosition, there's no need to pass it as a parameter to the function
 func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
 	switch p.getPieceType() {
 	case WhitePawn, BlackPawn:
@@ -148,17 +151,36 @@ func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
 			return true
 		}
 		// pawn in left side moves diagonal and goes to the right side
+
+		// TODO: ADD FUNCTIONS
+		//
+		// - piece.getX()
+		// - piece.getY()
 		if ((ppos%globals.TableDim == 0) && (npos%globals.TableDim == 7)) ||
 			// pawn in right sido moves diagonal and goes to the left side
 			((ppos%globals.TableDim == 7) && (npos%globals.TableDim == 0)) {
 			return true
 		}
-		// pawn can only move diagonal if and only if another piece is
+		// pawn can only move diagonal if and only if another piece from the oposite color is
 		// in a diagonal and the new move is a giagonal one
-		if ((math.Abs(float64(ppos-npos)) == 7.0) || (math.Abs(float64(ppos-npos)) == 9.0) ||
-			(math.Abs(float64(ppos+npos)) == 7.0) || (math.Abs(float64(ppos+npos)) == 9.0)) &&
-			!board.isThereAPieceAt(npos) {
-			return true
+		if (math.Abs(float64(ppos-npos)) == 7.0) || (math.Abs(float64(ppos-npos)) == 9.0) ||
+			(math.Abs(float64(ppos+npos)) == 7.0) || (math.Abs(float64(ppos+npos)) == 9.0) {
+			if !board.isThereAPieceAt(npos) {
+				return true
+			} else {
+				xLog, yLog := int(npos%globals.TableDim), int(npos/globals.TableDim)
+				// we already checked if there's a piece there, so we do not have to check the error here
+				np, _ := board.GetPieceAt(xLog, yLog)
+				// white pieces are the same as black pieces, but divided by 2, so to know if a piece is from
+				// the opposite color, we have to perform the division and, in case they are the from different color,
+				// the divission has to be either 2 or 1/2
+
+				// TODO: ADD FUNCTION
+				//
+				// AreSameColor(piece1, piece2)
+				d := float64(np.getPieceType() / p.getPieceType())
+				return !(d == 2.0 || d == 1/2)
+			}
 		}
 		// a pawn can only move two steps if its in the orignal state
 		if math.Abs(float64(ppos-npos)) == 16.0 {
@@ -166,7 +188,12 @@ func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
 			y := int(ppos / globals.TableDim)
 			return (y < 6) && (y > 1)
 		}
-
+		// and obviously, a pawn cannot move forward if any piece is in front of him
+		if ((math.Abs(float64(ppos-npos)) == 8.0) || (math.Abs(float64(ppos-npos)) == 16.0)) &&
+			board.isThereAPieceAt(npos) {
+			return true
+		}
+		// otherwise, its a good move
 		return false
 	default:
 		log.Println("Not implemented")
