@@ -101,6 +101,47 @@ var (
 					return DOWN(i) + LEFT(i)
 				}, 1,
 			},
+		}, WhiteKnight: {
+			Movement{
+				func(i int) int {
+					return UP(2*i) + RIGHT(i)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return UP(2*i) + LEFT(i)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return DOWN(2*i) + RIGHT(i)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return DOWN(2*i) + LEFT(i)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return UP(i) + RIGHT(i*2)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return UP(i) + LEFT(i*2)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return DOWN(i) + RIGHT(i*2)
+				}, 1,
+			},
+			Movement{
+				func(i int) int {
+					return DOWN(i) + LEFT(i*2)
+				}, 1,
+			},
 		},
 	}
 )
@@ -142,12 +183,8 @@ func (piece *Piece) MoveTo(to int) {
 func (p *Piece) isIllegalMove(board *Board, ppos, npos int) bool {
 	switch p.getPieceType() {
 	case WhitePawn, BlackPawn:
-		// pawn is at top of the board
-		if npos > 63 {
-			return true
-		}
-		// pawn is at the botton of the board
-		if npos < 0 {
+		// new position is out of bounds
+		if npos > 63 || npos < 0 {
 			return true
 		}
 		// pawn in left side moves diagonal and goes to the right side
