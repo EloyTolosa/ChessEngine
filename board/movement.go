@@ -115,11 +115,36 @@ var KnightMovements = []Movement{
 	},
 }
 
+var BishopMovements = []Movement{
+	{
+		func(i int) int {
+			return UP(i) + RIGHT(i)
+		}, 8,
+	},
+	{
+		func(i int) int {
+			return UP(i) + LEFT(i)
+		}, 8,
+	},
+	{
+		func(i int) int {
+			return DOWN(i) + RIGHT(i)
+		}, 8,
+	},
+	{
+		func(i int) int {
+			return DOWN(i) + LEFT(i)
+		}, 8,
+	},
+}
+
 var (
 	Movements = map[PieceType][]Movement{
 		WhitePawn:   WhitePawnMovements,
 		BlackPawn:   BlackPawnMovements,
 		WhiteKnight: KnightMovements,
 		BlackKnight: KnightMovements,
+		WhiteBishop: BishopMovements,
+		BlackBishop: BishopMovements,
 	}
 )

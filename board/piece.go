@@ -191,6 +191,15 @@ func (p *Piece) isIllegalMove(board *Board, newpos int) bool {
 		}
 
 		return false
+
+	case WhiteBishop, BlackBishop:
+
+		// check out of bounds
+		if npos.isOutOfBounds() {
+			return true
+		}
+
+		return false
 	default:
 		log.Println("Not implemented")
 		return false
