@@ -39,3 +39,87 @@ type Movement struct {
 	// max amount of cells that that movement can be performed
 	Limit int
 }
+
+var WhitePawnMovements = []Movement{
+	{
+		UP, 2,
+	},
+	{
+		func(i int) int {
+			return UP(i) + RIGHT(i)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return UP(i) + LEFT(i)
+		}, 1,
+	},
+}
+
+var BlackPawnMovements = []Movement{
+	{
+		DOWN, 2,
+	},
+	{
+		func(i int) int {
+			return DOWN(i) + RIGHT(i)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return DOWN(i) + LEFT(i)
+		}, 1,
+	},
+}
+
+var KnightMovements = []Movement{
+	{
+		func(i int) int {
+			return UP(2*i) + RIGHT(i)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return UP(2*i) + LEFT(i)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return DOWN(2*i) + RIGHT(i)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return DOWN(2*i) + LEFT(i)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return UP(i) + RIGHT(i*2)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return UP(i) + LEFT(i*2)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return DOWN(i) + RIGHT(i*2)
+		}, 1,
+	},
+	{
+		func(i int) int {
+			return DOWN(i) + LEFT(i*2)
+		}, 1,
+	},
+}
+
+var (
+	Movements = map[PieceType][]Movement{
+		WhitePawn:   WhitePawnMovements,
+		BlackPawn:   BlackPawnMovements,
+		WhiteKnight: KnightMovements,
+		BlackKnight: KnightMovements,
+	}
+)
