@@ -8,18 +8,18 @@ import (
 
 const (
 	// Piece constants they're a Piece type so they don't get confused
-	WhitePawn   PieceType = 1
-	BlackPawn   PieceType = 2
-	WhiteKnight PieceType = 3
-	BlackKnight PieceType = 6
-	WhiteBishop PieceType = 4
-	BlackBishop PieceType = 8
-	WhiteRook   PieceType = 5
-	BlackRook   PieceType = 10
-	WhiteKing   PieceType = 7
-	BlackKing   PieceType = 14
-	WhiteQueen  PieceType = 9
-	BlackQueen  PieceType = 18
+	WhitePawn PieceType = iota
+	BlackPawn
+	WhiteKnight
+	BlackKnight
+	WhiteBishop
+	BlackBishop
+	WhiteRook
+	BlackRook
+	WhiteKing
+	BlackKing
+	WhiteQueen
+	BlackQueen
 )
 
 const (
@@ -71,81 +71,6 @@ const (
 // 		- Rooks move in straight lines, either up/down, or left/right, and can move
 // 			the ammount of cells they want to.
 
-var (
-	Movements = map[PieceType][]Movement{
-		WhitePawn: {
-			Movement{
-				UP, 2,
-			},
-			Movement{
-				func(i int) int {
-					return UP(i) + RIGHT(i)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return UP(i) + LEFT(i)
-				}, 1,
-			},
-		}, BlackPawn: {
-			Movement{
-				DOWN, 2,
-			},
-			Movement{
-				func(i int) int {
-					return DOWN(i) + RIGHT(i)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return DOWN(i) + LEFT(i)
-				}, 1,
-			},
-		}, WhiteKnight: {
-			Movement{
-				func(i int) int {
-					return UP(2*i) + RIGHT(i)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return UP(2*i) + LEFT(i)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return DOWN(2*i) + RIGHT(i)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return DOWN(2*i) + LEFT(i)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return UP(i) + RIGHT(i*2)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return UP(i) + LEFT(i*2)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return DOWN(i) + RIGHT(i*2)
-				}, 1,
-			},
-			Movement{
-				func(i int) int {
-					return DOWN(i) + LEFT(i*2)
-				}, 1,
-			},
-		},
-	}
-)
-
 // A Piece is represented with a 16 bit number. The 8 leftmost bits represent the
 // position, and the 8 rightmost of them represent the type of the piece.
 //
@@ -177,7 +102,7 @@ func (pos PiecePosition) getY() int {
 }
 
 func (pos PiecePosition) isOutOfBounds() bool {
-	return pos > 63 || pos < 0
+	return pos > 63
 }
 
 func NewPiece(pt PieceType, pp int) *Piece {
@@ -190,17 +115,22 @@ func (piece *Piece) MoveTo(to int) {
 }
 
 func AreSameColor(p1, p2 *Piece) bool {
-	// white pieces are the same as black pieces, but divided by 2, so to know if a piece is from
-	// the opposite color, we have to perform the division and, in case they are the from different color,
-	// the divission has to be either 2 or 1/2
-	d := float64(p1.getPieceType() / p2.getPieceType())
-	return !(d == 2.0 || d == 1/2)
+	// white pieces are even numbers, and black pieces are odd numbers
+	// to check if they are the same color, we just have to check if both are
+	// either even or odd
+	return (p1.getPieceType()%2 == p2.getPieceType()%2)
 }
 
 func (p *Piece) isIllegalMove(board *Board, newpos int) bool {
 	// current and new piece positions
 	ppos := PiecePosition(p.getPosition())
 	npos := PiecePosition(newpos)
+
+	px, py := ppos.getX(), ppos.getY()
+	nx, ny := npos.getX(), npos.getY()
+
+	xdiff := math.Abs(float64(px - nx))
+	ydiff := math.Abs(float64(py - ny))
 
 	switch p.getPieceType() {
 	case WhitePawn, BlackPawn:
@@ -209,19 +139,12 @@ func (p *Piece) isIllegalMove(board *Board, newpos int) bool {
 			return true
 		}
 
-		px, py := ppos.getX(), ppos.getY()
-		nx, ny := npos.getX(), npos.getY()
-
 		// pawn in left side moves diagonal and goes to the right side
 		if ((px == 0) && (nx == 7)) ||
 			// pawn in right sido moves diagonal and goes to the left side
 			((px == 7) && (nx == 0)) {
 			return true
 		}
-
-		// xdiff and ydiff variables just to save some memory and lines of code
-		xdiff := math.Abs(float64(px - nx))
-		ydiff := math.Abs(float64(py - ny))
 
 		// pawn can only move diagonal if and only if another piece from the oposite color is
 		// in a diagonal and the new move is a giagonal one
@@ -244,6 +167,29 @@ func (p *Piece) isIllegalMove(board *Board, newpos int) bool {
 			return true
 		}
 		// otherwise, its a good move
+		return false
+
+	case WhiteKnight, BlackKnight:
+
+		// check out of bounds
+		if npos.isOutOfBounds() {
+			return true
+		}
+
+		// check if knight overflows from the bottom, top, left or right
+		if (px <= 1 && nx >= 6) || (px >= 6 && nx <= 1) ||
+			(py <= 1 && ny >= 6) || (py >= 6 && ny <= 1) {
+			return true
+		}
+
+		// check if there's a piece in the new position
+		if board.isThereAPieceAt(newpos) {
+			np, _ := board.GetPieceAt(nx, ny)
+			if AreSameColor(p, np) {
+				return true
+			}
+		}
+
 		return false
 	default:
 		log.Println("Not implemented")
