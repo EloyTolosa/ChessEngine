@@ -160,12 +160,31 @@ func (p *Piece) isIllegalMove(board *Board, newpos int) bool {
 		// a pawn can only move two steps if its in the orignal state
 		if ydiff == 2 {
 			// get y axis of the piece (row)
-			return (py < 6) && (py > 1)
+			if (py < 6) && (py > 1) {
+				return true
+			}
 		}
 		// and obviously, a pawn cannot move forward if any piece is in front of him
 		if (ydiff == 1 || ydiff == 2) && board.isThereAPieceAt(newpos) {
+			if ydiff == 1 && board.isThereAPieceAt(newpos) {
+				np, _ := board.GetPieceAt(nx, ny)
+				board.piecesInFront = append(board.piecesInFront, np)
+			}
 			return true
 		}
+
+		// if none of the conditions are given, it should be a good position, but we need to check
+		// if the position is in a straight line behind a piece that covers the pawn passing
+		if len(board.piecesInFront) > 0 {
+			for _, pif := range board.piecesInFront {
+				pifx, pify := pif.GetLogicalPosition()
+				pifydiff := int(math.Abs(float64(pify - ny)))
+				if nx == pifx && pifydiff > 0 {
+					return true
+				}
+			}
+		}
+
 		// otherwise, its a good move
 		return false
 
@@ -199,6 +218,41 @@ func (p *Piece) isIllegalMove(board *Board, newpos int) bool {
 			return true
 		}
 
+		// check if bishop overflows the table
+		// bishop movements have to be in straight lines, so the difference of the axis
+		// has to be the same always, as it's like a linear equation
+		if xdiff != ydiff {
+			return true
+		}
+
+		// check if there's a piece from the same color in the table
+		if board.isThereAPieceAt(newpos) {
+			// get piece and add it to the pieces in front
+			np, _ := board.GetPieceAt(nx, ny)
+			board.piecesInFront = append(board.piecesInFront, np)
+
+			// the movement is illegal if they are the same color
+			if AreSameColor(p, np) {
+				return true
+			}
+		}
+
+		// if there's not a piece in the new position, we need to check if that position
+		// is covered by another piece
+		for _, pif := range board.piecesInFront {
+			pifx, pify := pif.GetLogicalPosition()
+			// edge case: first iteration, pify and pify == nx and ny
+			if pifx == nx && pify == ny {
+				continue
+			}
+
+			pifxdiff := math.Abs(float64(pifx - nx))
+			pifydiff := math.Abs(float64(pify - ny))
+			if pifxdiff == pifydiff {
+				return true
+			}
+		}
+
 		return false
 	default:
 		log.Println("Not implemented")
@@ -213,11 +267,12 @@ func (p *Piece) GetAvailableMovements(board *Board) (newPositions []int) {
 			npos := ppos + m.Move(r)
 			// check position validity
 			if !p.isIllegalMove(board, npos) {
-				// if it does not overflow, we append it
 				newPositions = append(newPositions, npos)
 			}
 		}
 	}
+	// clear pieces in front slice
+	board.piecesInFront = make([]*Piece, 0)
 	return
 }
 
