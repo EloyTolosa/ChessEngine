@@ -6,7 +6,6 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
-	"math"
 	"os"
 
 	"ChessEngine/globals"
@@ -16,43 +15,11 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
-const (
-	// Table dimensions (squared)
-	tDimensions = 8
-	// Table inital value
-	tInitValue table = 18446462598732906495
-	// NillValue is all 1's, so its the max value for an uint64
-	tNilValue table = 18446744073709551615
-)
-
 var (
 	images map[PieceType]*ebiten.Image
 
 	ErrNoPieceAtPos = errors.New("no piece at the given position")
 )
-
-// A table is a number which represents the cells that have Pieces in it. For
-// instance, the initial table would be represented by the number
-// 18446462598732906495, which is the decimal representation for
-//
-// 1 1 1 1 1 1 1 1
-// 1 1 1 1 1 1 1 1
-// 0 0 0 0 0 0 0 0
-// 0 0 0 0 0 0 0 0
-// 0 0 0 0 0 0 0 0
-// 0 0 0 0 0 0 0 0
-// 1 1 1 1 1 1 1 1
-// 1 1 1 1 1 1 1 1
-//
-// Starting from the upper left corner down until the lower right one
-type table uint64
-
-func (t *table) move(from, to int) {
-	from = globals.TableDim*globals.TableDim - from - 1
-	to = globals.TableDim*globals.TableDim - to - 1
-	*t = *t & (^(1 << from)) // put 0 in previous position
-	*t = *t | (1 << to)      // put 1 in new position
-}
 
 type coordinate struct {
 	x, y uint
@@ -62,14 +29,13 @@ type Board struct {
 	// This variable saves the state of every individual piece. Its position, and its
 	// type
 	pieces map[int]*Piece
-	// this saves the state of the pieces. If in between frames, the value of
-	// the table is different, this means the board has changed
-	tableCurrentFrame  table
-	tablePreviousFrame table
 	// this saves the state of the movements table. The movements table is a table
 	// in which we store all possible movements from a piece.
 	// This table is saved whenever the user clicks on a piece
 	availablePositions []int
+	// this variable saves which pieces cover the path of a piece, except for the knight
+	// who can jump over pieces
+	piecesInFront []*Piece
 	// this saves a state of the clicked events
 	// if in between frames, this two variables are equal, this means
 	// the state of the board has not changed
@@ -79,10 +45,6 @@ type Board struct {
 	// Being the coordinate {0,0} the top left corner of the table
 	clickedAtCurrentFrame  coordinate
 	clickedAtPreviousFrame coordinate
-}
-
-func (board *Board) GetTableCurrentFrame() table {
-	return board.tableCurrentFrame
 }
 
 func (board *Board) GetClickedAtCurrent() (x, y int) {
@@ -95,17 +57,12 @@ func (board *Board) GetClickedAtPrevious() (x, y int) {
 
 // Function that returns true if there is a piece at position p
 func (board *Board) isThereAPieceAt(pos int) bool {
-	// copy the table value
-	b := board.tableCurrentFrame
-	twoToThe63 := uint64(math.Pow(2, 63))
-	// return true if there is a one at position 'pos' of the table
-	// (bitmap implementation)
-	return ((uint64(b) << pos) & twoToThe63) == twoToThe63
+	_, ok := board.pieces[pos]
+	return ok
 }
 
 func (board *Board) UpdateState() {
 	// Update table code here ...
-	board.tablePreviousFrame = board.tableCurrentFrame
 	board.clickedPreviousFrame = board.clickedCurrentFrame
 	board.clickedAtPreviousFrame = board.clickedAtCurrentFrame
 }
@@ -115,8 +72,6 @@ func (board *Board) Move(p *Piece, x, y int) {
 	from := int(p.getPosition())
 	// delete old position
 	delete(board.pieces, from)
-	// change bit in table current frame
-	board.tableCurrentFrame.move(from, to)
 	// change key to map
 	board.pieces[to] = p
 	// change new position to piece
@@ -145,13 +100,8 @@ func (board *Board) IsItAvailablePosition(xpos, ypos int) (available bool) {
 	return available
 }
 
-func (board *Board) IsNilTable() bool {
-	return board.tableCurrentFrame == tNilValue
-}
-
 func (board *Board) HasChanged() bool {
 	return ((board.clickedCurrentFrame != board.clickedPreviousFrame) ||
-		(board.tableCurrentFrame != board.tablePreviousFrame) ||
 		(board.clickedAtCurrentFrame != board.clickedAtPreviousFrame))
 }
 
@@ -181,7 +131,7 @@ func (board *Board) LoadImages() {
 
 	images = make(map[PieceType]*ebiten.Image)
 
-	// Append textures so we don't have to search them after this
+	// Load images in RAM for easier and fastest loading
 	images[WhitePawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_plt60.png", currDir, "assets/images"))
 	images[BlackPawn] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_pdt60.png", currDir, "assets/images"))
 	images[WhiteBishop] = utils.NewImage(fmt.Sprintf("%s/%s/Chess_blt60.png", currDir, "assets/images"))
@@ -198,10 +148,6 @@ func (board *Board) LoadImages() {
 }
 
 func (board *Board) InitBoard() {
-
-	// Initial table values
-	board.tableCurrentFrame = tInitValue
-	board.tablePreviousFrame = tNilValue
 
 	// initial clicked at values
 	board.clickedAtCurrentFrame = coordinate{0, 0}
@@ -242,10 +188,10 @@ func (board *Board) Paint(screen *ebiten.Image) {
 }
 
 func (board *Board) paintCells(screen *ebiten.Image) {
-	cWidth := int(globals.WindowWidth / tDimensions)
-	cHeight := int(globals.WindowHeight / tDimensions)
-	for i := 0; i < tDimensions; i++ {
-		for j := 0; j < tDimensions; j++ {
+	cWidth := int(globals.WindowWidth / globals.TableDim)
+	cHeight := int(globals.WindowHeight / globals.TableDim)
+	for i := 0; i < globals.TableDim; i++ {
+		for j := 0; j < globals.TableDim; j++ {
 			if (i+j)%2 == 0 {
 				ebitenutil.DrawRect(screen, float64(i*cWidth), float64(j*cHeight), float64(cWidth), float64(cHeight), color.White)
 			} else {
